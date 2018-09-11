@@ -2,13 +2,22 @@
 
   <div class="container">
     <header>
-      <h1>Todo List</h1>
+      <h1>Todo List  {{ incompleteCount }}</h1>
 
+      <label class="hide-completed">
+        <input type="checkbox" />
+        Hide Completed Tasks
+      </label>
 
+      {{> loginButtons}}
+      <br/>
+    {{#if currentUser}}
      <form class="new-task">
        <input type="text" name="text" placeholder="Type to add new tasks" />
      </form>
-
+     {{else}}
+        <div style="color:grey;text-align:right;width:100%;"><i>Please sign in to add new tasks</i></div>
+     {{/if}}
     </header>
 
     <ul>
@@ -20,9 +29,3 @@
     </ul>
   </div>
 </body>
-
-
-
-<template name="task">
-  <li>{{text}}</li>
-</template>
