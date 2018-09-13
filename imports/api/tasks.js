@@ -32,6 +32,11 @@ Meteor.methods({
   'tasks.remove'(taskId){
     check(taskId,String);
 
+    var task = Tasks.findOne(taskId);
+    if(task.private && task.owner !== Meteor.userId()){
+      throw new Meteor.Error('not-authorized');
+    }
+
     Tasks.remove(taskId);
   },
 
@@ -39,11 +44,31 @@ Meteor.methods({
     check(taskId,String);
     check(setChecked,Boolean);
 
+    var task = Tasks.findOne(taskId);
+    if(task.private && task.owner !== Meteor.userId()){
+      throw new Meteor.Error('not-authorized');
+    }
+
+
     Tasks.update(
       taskId,
       {
         $set:{ checked: setChecked }
       }
     );
+  },
+
+  'tasks.setPrivate'(taskId,setToPrivate){
+    check(taskId,String);
+    check(setToPrivate,Boolean);
+
+    const task = Tasks.findOne(taskId);
+
+    //Make sure task owner can make a task Private
+    if(task.owner !== Meteor.userId()) {
+      throw new Meteor.Error('not-authorized');
+    }
+
+    Tasks.update(taskId, {$set: {private: setToPrivate}});
   }
 })
