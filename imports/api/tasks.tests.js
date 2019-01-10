@@ -1,15 +1,10 @@
 /* eslint-env mocha */
 
-/*
-Add for
-1. Set checked of same user.
-2. Set private of same user.
-3.
-*/
 import { Meteor } from 'meteor/meteor';
 import { Random } from 'meteor/random';
 import { Tasks } from './tasks.js';
 import { assert } from 'chai';
+import { Accounts } from 'meteor/accounts-base';
 
 if (Meteor.isServer) {
 
@@ -17,17 +12,15 @@ if (Meteor.isServer) {
     describe('methods', () => {
       const username = 'ngunyimacharia';
       const otherUserId = Random.id();
-      let taskId;
-      let userId;
+      let taskId, userId;
+
       before( () => {
 
-        if( Meteor.users.find({ username }).count() < 1){
-          Accounts.createUser({
-            username: username,
-            password: 'password',
-          });
-        }
-        userId = Meteor.users.findOne({ username })._id;
+        userId =  Accounts.createUser({
+          username: username,
+          email: 'username@example.tld',
+          password: 'password',
+        });
 
       });
 
@@ -39,93 +32,90 @@ if (Meteor.isServer) {
           text: 'test task',
           createdAt: new Date(),
           owner: userId,
-          username: 'tmeasday',
-          private: true,
+          username: username,
+          private: false,
           checked: false,
         });
 
       });
 
+      after( ()=>{
+        Meteor.users.remove({ username });
+        Meteor.users.find({}).count();
+      });
+
       it('can insert task', ()=>{
+        const text = 'Hello!';
         const insertTask = Meteor.server.method_handlers['tasks.insert'];
-        const invocation = { userId };
-        insertTask.apply(invocation, ['New task']);
+        const fakeUserObject = { userId };
+        insertTask.apply(fakeUserObject, [text]);
         assert.equal(Tasks.find().count(), 2);
       });
 
       it('cannot insert task if not logged in', ()=>{
         const insertTask = Meteor.server.method_handlers['tasks.insert'];
-        const invocation = { };
-        try{
-          insertTask.apply(invocation, ['New task']);
-        }catch(err){
-          assert.equal(err.error, 'not-authorized');
-        }finally{
-          assert.equal(Tasks.find().count(), 1);
-        }
+        const fakeUserObject = { };
+        assert.throws(() => {
+          insertTask.apply(fakeUserObject, ['New task']);
+        },Meteor.Error, 'not-authorized');
       });
 
       it('can delete owned task', () => {
         const deleteTask = Meteor.server.method_handlers['tasks.remove'];
-        const invocation = { userId };
-        deleteTask.apply(invocation, [taskId]);
+        const fakeUserObject = { userId };
+        deleteTask.apply(fakeUserObject, [taskId]);
         assert.equal(Tasks.find().count(), 0);
       });
 
       it('cannot delete someone elses task', () => {
+        Tasks.update(taskId,{$set:{private:true}});
         const deleteTask = Meteor.server.method_handlers['tasks.remove'];
-        const invocation = { 'userId':otherUserId };
-        assert.throws(function(){
-          deleteTask.apply(invocation,[taskId]);
+        const fakeUserObject = { 'userId':otherUserId };
+        assert.throws(() => {
+          deleteTask.apply(fakeUserObject,[taskId]);
         },Meteor.Error, 'not-authorized');
-        // try{
-        //   deleteTask.apply(invocation, [taskId]);
-        // }catch(err){
-        //   assert.equal(err.error, 'not-authorized');
-        // }finally{
-        //   assert.equal(Tasks.find().count(), 1);
-        // }
+      });
+
+      it('can delete someone elses public task', () => {
+        const deleteTask = Meteor.server.method_handlers['tasks.remove'];
+        const fakeUserObject = { 'userId':otherUserId };
+        deleteTask.apply(fakeUserObject,[taskId]);
+        assert.equal(Tasks.find().count(), 0);
       });
 
       it('can check owned task', () => {
         const checkTask = Meteor.server.method_handlers['tasks.setChecked'];
-        const invocation = { userId };
-        checkTask.apply(invocation, [taskId, true]);
+        const fakeUserObject = { userId };
+        checkTask.apply(fakeUserObject, [taskId, true]);
         assert.equal(Tasks.findOne(taskId).checked, true);
       });
 
       it('cannot check someone elses task', () => {
+        Tasks.update(taskId,{$set:{private:true}});
         const checkTask = Meteor.server.method_handlers['tasks.setChecked'];
-        const invocation = { 'userId':otherUserId };
-        try{
-          checkTask.apply(invocation, [taskId, true]);
-        }catch(err){
-          assert.equal(err.error, 'not-authorized');
-        }finally{
-          assert.equal(Tasks.findOne(taskId).checked, false);
-        }
+        const fakeUserObject = { 'userId':otherUserId };
+        assert.throws(() => {
+          checkTask.apply(fakeUserObject, [taskId, true]);
+        },Meteor.Error, 'not-authorized');
       });
 
       it('can set private owned task', () => {
         const setPrivate = Meteor.server.method_handlers['tasks.setPrivate'];
-        const invocation = { userId };
-        setPrivate.apply(invocation, [taskId, true]);
+        const fakeUserObject = { userId };
+        setPrivate.apply(fakeUserObject, [taskId, true]);
         assert.equal(Tasks.findOne(taskId).private, true);
       });
 
       it('cannot set private someone elses task', () => {
         const setPrivate = Meteor.server.method_handlers['tasks.setPrivate'];
-        const invocation = { 'userId':otherUserId };
-        try{
-          setPrivate.apply(invocation, [taskId, true]);
-        }catch(err){
-          assert.equal(err.error, 'not-authorized');
-        }finally{
-          assert.equal(Tasks.find().count(), 1);
-        }
+        const fakeUserObject = { 'userId':otherUserId };
+        assert.throws(() => {
+          setPrivate.apply(fakeUserObject, [taskId, true]);
+        },Meteor.Error, 'not-authorized');
       });
 
     });
+
   });
 
 }
