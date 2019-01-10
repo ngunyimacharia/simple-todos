@@ -87,7 +87,7 @@ if (Meteor.isServer) {
         const checkTask = Meteor.server.method_handlers['tasks.setChecked'];
         const fakeUserObject = { userId };
         checkTask.apply(fakeUserObject, [taskId, true]);
-        assert.equal(Tasks.findOne(taskId).checked, true);
+        assert.equal(Tasks.find({'checked':true}).count(),1);
       });
 
       it('cannot check someone elses task', () => {
@@ -103,7 +103,7 @@ if (Meteor.isServer) {
         const setPrivate = Meteor.server.method_handlers['tasks.setPrivate'];
         const fakeUserObject = { userId };
         setPrivate.apply(fakeUserObject, [taskId, true]);
-        assert.equal(Tasks.findOne(taskId).private, true);
+        assert.equal(Tasks.find({'private':true}).count(),1);
       });
 
       it('cannot set private someone elses task', () => {
