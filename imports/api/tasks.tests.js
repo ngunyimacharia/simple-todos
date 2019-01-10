@@ -15,12 +15,22 @@ if (Meteor.isServer) {
 
   describe('Tasks', () => {
     describe('methods', () => {
-      const userId = Random.id();
+      const username = 'ngunyimacharia';
+      const otherUserId = Random.id();
       let taskId;
-
+      let userId;
       before( () => {
-        // It's here we create a new user if needed
+
+        if( Meteor.users.find({ username }).count() < 1){
+          Accounts.createUser({
+            username: username,
+            password: 'password',
+          });
+        }
+        userId = Meteor.users.findOne({ username })._id;
+
       });
+
 
       beforeEach(() => {
 
@@ -30,44 +40,89 @@ if (Meteor.isServer) {
           createdAt: new Date(),
           owner: userId,
           username: 'tmeasday',
+          private: true,
+          checked: false,
         });
 
       });
 
-      it('can delete owned task', () => {
-        // Find the internal implementation of the task method so we can
-        // test it in isolation
-        const deleteTask = Meteor.server.method_handlers['tasks.remove'];
-        // Set up a fake method invocation that looks like what the method expects
+      it('can insert task', ()=>{
+        const insertTask = Meteor.server.method_handlers['tasks.insert'];
         const invocation = { userId };
-        // Run the method with `this` set to the fake invocation
+        insertTask.apply(invocation, ['New task']);
+        assert.equal(Tasks.find().count(), 2);
+      });
+
+      it('cannot insert task if not logged in', ()=>{
+        const insertTask = Meteor.server.method_handlers['tasks.insert'];
+        const invocation = { };
+        try{
+          insertTask.apply(invocation, ['New task']);
+        }catch(err){
+          assert.equal(err.error, 'not-authorized');
+        }finally{
+          assert.equal(Tasks.find().count(), 1);
+        }
+      });
+
+      it('can delete owned task', () => {
+        const deleteTask = Meteor.server.method_handlers['tasks.remove'];
+        const invocation = { userId };
         deleteTask.apply(invocation, [taskId]);
-        // Verify that the method does what we expected
         assert.equal(Tasks.find().count(), 0);
       });
 
+      it('cannot delete someone elses task', () => {
+        const deleteTask = Meteor.server.method_handlers['tasks.remove'];
+        const invocation = { 'userId':otherUserId };
+        assert.throws(function(){
+          deleteTask.apply(invocation,[taskId]);
+        },Meteor.Error, 'not-authorized');
+        // try{
+        //   deleteTask.apply(invocation, [taskId]);
+        // }catch(err){
+        //   assert.equal(err.error, 'not-authorized');
+        // }finally{
+        //   assert.equal(Tasks.find().count(), 1);
+        // }
+      });
+
       it('can check owned task', () => {
-        // Find the internal implementation of the task method so we can
-        // test it in isolation
         const checkTask = Meteor.server.method_handlers['tasks.setChecked'];
-        // Set up a fake method invocation that looks like what the method expects
         const invocation = { userId };
-        // Run the method with `this` set to the fake invocation
         checkTask.apply(invocation, [taskId, true]);
-        // Verify that the method does what we expected
         assert.equal(Tasks.findOne(taskId).checked, true);
       });
 
+      it('cannot check someone elses task', () => {
+        const checkTask = Meteor.server.method_handlers['tasks.setChecked'];
+        const invocation = { 'userId':otherUserId };
+        try{
+          checkTask.apply(invocation, [taskId, true]);
+        }catch(err){
+          assert.equal(err.error, 'not-authorized');
+        }finally{
+          assert.equal(Tasks.findOne(taskId).checked, false);
+        }
+      });
+
       it('can set private owned task', () => {
-        // Find the internal implementation of the task method so we can
-        // test it in isolation
         const setPrivate = Meteor.server.method_handlers['tasks.setPrivate'];
-        // Set up a fake method invocation that looks like what the method expects
         const invocation = { userId };
-        // Run the method with `this` set to the fake invocation
         setPrivate.apply(invocation, [taskId, true]);
-        // Verify that the method does what we expected
         assert.equal(Tasks.findOne(taskId).private, true);
+      });
+
+      it('cannot set private someone elses task', () => {
+        const setPrivate = Meteor.server.method_handlers['tasks.setPrivate'];
+        const invocation = { 'userId':otherUserId };
+        try{
+          setPrivate.apply(invocation, [taskId, true]);
+        }catch(err){
+          assert.equal(err.error, 'not-authorized');
+        }finally{
+          assert.equal(Tasks.find().count(), 1);
+        }
       });
 
     });
