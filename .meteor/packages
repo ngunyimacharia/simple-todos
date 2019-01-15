@@ -23,3 +23,5 @@ accounts-password
 accounts-facebook
 practicalmeteor:mocha
 meteortesting:mocha
+kadira:blaze-layout
+kadira:flow-router
